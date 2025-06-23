@@ -13,73 +13,194 @@ const Contact = () => {
   const [submitStatus, setSubmitStatus] = useState(null);
 
   const handleChange = (e) => {
-    setFormData({
+    console.log('=== FORM FIELD CHANGE ===');
+    console.log('Field name:', e.target.name);
+    console.log('Field value:', e.target.value);
+    console.log('Previous form data:', formData);
+    
+    const newFormData = {
       ...formData,
       [e.target.name]: e.target.value
-    });
+    };
+    
+    setFormData(newFormData);
+    console.log('Updated form data:', newFormData);
+    console.log('=== END FIELD CHANGE ===\n');
   };
 
-  const sendEmail = async (data) => {
-    // Using EmailJS service
-    const emailjsData = {
-      service_id: 'service_wlmt70b',
-      template_id: 'template_q6jr2mv', 
-      user_id: 'jc6_JydFnuDpPq4F9',
+  const sendViaEmailJS = async (data) => {
+    console.log('\n=== EMAILJS SEND ATTEMPT START ===');
+    console.log('Input data received:', data);
+    
+    // Your EmailJS configuration
+    const serviceId = 'service_wlmt70b';
+    const templateId = 'template_q6jr2mv';
+    const userId = 'jc6_JydFnuDpPq4F9';
+    const toEmail = 'dshreya943@gmail.com';
+    
+    console.log('EmailJS Configuration:');
+    console.log('- Service ID:', serviceId);
+    console.log('- Template ID:', templateId);
+    console.log('- User ID:', userId);
+    console.log('- To Email:', toEmail);
+    
+    const emailjsPayload = {
+      service_id: serviceId,
+      template_id: templateId,
+      user_id: userId,
       template_params: {
-        from_name: data.name,
-        from_email: data.email,
-        subject: data.subject,
-        message: data.message,
-        to_email: 'dshreya943@gmail.com'
+        // Match your template variables exactly
+        name: data.name,           // This will fill {{name}} in template
+        email: data.email,         // This will fill {{email}} in template  
+        subject: data.subject,     // This will fill {{subject}} in template
+        message: data.message,     // This will fill {{message}} in template
+        
+        // Additional fields for better email handling
+        from_name: data.name,      // Backup field
+        from_email: data.email,    // Backup field
+        to_email: toEmail,
+        reply_to: data.email,
+        to_name: 'Shreya Das'
       }
     };
 
-    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(emailjsData)
-    });
+    console.log('EmailJS Full Payload:');
+    console.log(JSON.stringify(emailjsPayload, null, 2));
 
-    return response;
-  };
+    const apiUrl = 'https://api.emailjs.com/api/v1.0/email/send';
+    console.log('API URL:', apiUrl);
 
-  const sendViaFormspree = async (data) => {
-    // Alternative: Using Formspree
-    const response = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
+    try {
+      console.log('Making fetch request to EmailJS...');
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailjsPayload)
+      });
 
-    return response;
+      console.log('Response received!');
+      console.log('Response status:', response.status);
+      console.log('Response status text:', response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        console.log('Response not OK, getting error details...');
+        let errorText;
+        try {
+          errorText = await response.text();
+          console.log('Error response body:', errorText);
+        } catch (e) {
+          console.log('Could not read error response body:', e);
+          errorText = 'Unable to read error response';
+        }
+        
+        const errorMessage = `EmailJS failed with status ${response.status}: ${errorText}`;
+        console.log('FINAL ERROR MESSAGE:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      console.log('Response OK, getting success details...');
+      let successText;
+      try {
+        successText = await response.text();
+        console.log('Success response body:', successText);
+      } catch (e) {
+        console.log('Could not read success response body:', e);
+        successText = 'Success but could not read response';
+      }
+
+      console.log('=== EMAILJS SUCCESS ===');
+      console.log('Email sent successfully via EmailJS!');
+      console.log('Response:', successText);
+      console.log('=== EMAILJS SEND ATTEMPT END ===\n');
+      
+      return { success: true, service: 'EmailJS', response: successText };
+
+    } catch (error) {
+      console.log('=== EMAILJS ERROR ===');
+      console.log('Error type:', error.constructor.name);
+      console.log('Error message:', error.message);
+      console.log('Error stack:', error.stack);
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        console.log('NETWORK ERROR: This might be a CORS or network connectivity issue');
+      }
+      
+      console.log('=== EMAILJS SEND ATTEMPT END (FAILED) ===\n');
+      throw error;
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    console.log('\n🚀 =========================');
+    console.log('🚀 FORM SUBMISSION STARTED');
+    console.log('🚀 =========================');
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('Current form data:', formData);
+    
+    // Validate form
+    const requiredFields = ['name', 'email', 'subject', 'message'];
+    const missingFields = requiredFields.filter(field => !formData[field] || formData[field].trim() === '');
+    
+    if (missingFields.length > 0) {
+      console.log('❌ VALIDATION FAILED');
+      console.log('Missing fields:', missingFields);
+      console.log('Form submission aborted');
+      setSubmitStatus('error');
+      return;
+    }
+    
+    console.log('✅ VALIDATION PASSED');
+    console.log('All required fields present');
+    
     setIsSubmitting(true);
     setSubmitStatus(null);
-
+    
     try {
-      // For demo purposes, we'll simulate sending
-      // Replace this with actual email sending logic
+      console.log('📧 ATTEMPTING EMAIL SEND...');
+      const result = await sendViaEmailJS(formData);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // You can uncomment one of these methods after setup:
-      // const response = await sendEmail(formData);
-      // const response = await sendViaFormspree(formData);
-      
-      // For demo, we'll show success
-      console.log('Message would be sent:', formData);
-      setSubmitStatus('success');
-      setFormData({ name: '', email: '', subject: '', message: '' });
+      if (result.success) {
+        console.log('🎉 EMAIL SENT SUCCESSFULLY!');
+        console.log('Service used:', result.service);
+        console.log('Response:', result.response);
+        
+        setSubmitStatus('success');
+        setFormData({ name: '', email: '', subject: '', message: '' });
+        console.log('✅ Form reset to empty state');
+      } else {
+        throw new Error('EmailJS returned success:false');
+      }
       
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.log('💥 EMAIL SEND FAILED');
+      console.log('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      
+      // Additional debugging for common issues
+      if (error.message.includes('404')) {
+        console.log('🔍 404 Error suggests wrong service/template ID or EmailJS account issue');
+      } else if (error.message.includes('401') || error.message.includes('403')) {
+        console.log('🔍 Authorization error - check your User ID and EmailJS account settings');
+      } else if (error.message.includes('CORS')) {
+        console.log('🔍 CORS error - EmailJS should handle this, might be network issue');
+      } else if (error.name === 'TypeError') {
+        console.log('🔍 Network error - check internet connection or EmailJS service status');
+      }
+      
       setSubmitStatus('error');
     } finally {
       setIsSubmitting(false);
+      console.log('🏁 FORM SUBMISSION ENDED');
+      console.log('🏁 =========================\n');
     }
   };
 
@@ -112,6 +233,13 @@ const Contact = () => {
       link: "https://www.linkedin.com/in/shreya-das-2079b2269"
     }
   ];
+
+  // Log current state on every render
+  console.log('🔄 Component render - Current state:', {
+    formData,
+    isSubmitting,
+    submitStatus
+  });
 
   return (
     <section id="contact" className="py-20 bg-gray-50">
@@ -200,6 +328,22 @@ const Contact = () => {
                 </li>
               </ul>
             </div>
+
+            {/* Debug Instructions */}
+            <div className="bg-blue-50 border border-blue-200 p-6 rounded-lg">
+              <h4 className="text-lg font-semibold text-blue-900 mb-3">
+                🔧 Debug Instructions
+              </h4>
+              <p className="text-blue-800 text-sm mb-2">
+                <strong>Open Browser Console (F12 → Console tab)</strong> to see detailed logs:
+              </p>
+              <ul className="text-blue-700 text-sm space-y-1">
+                <li>• Form field changes</li>
+                <li>• EmailJS configuration details</li>
+                <li>• API request/response data</li>
+                <li>• Error details and suggestions</li>
+              </ul>
+            </div>
           </div>
 
           {/* Contact Form */}
@@ -220,7 +364,7 @@ const Contact = () => {
                 <AlertCircle className="text-red-600" size={24} />
                 <div>
                   <h4 className="font-semibold text-red-800">Failed to Send Message</h4>
-                  <p className="text-red-600">Please try again or contact me directly at dshreya943@gmail.com</p>
+                  <p className="text-red-600">Check the browser console (F12) for detailed error information, or email me directly at dshreya943@gmail.com</p>
                 </div>
               </div>
             )}
